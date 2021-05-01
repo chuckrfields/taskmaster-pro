@@ -13,6 +13,8 @@ var createTask = function(taskText, taskDate, taskList) {
   // append span and p element to parent li
   taskLi.append(taskSpan, taskP);
 
+  // check due date
+  auditTask(taskLi);
 
   // append to ul list on the page
   $("#list-" + taskList).append(taskLi);
@@ -53,7 +55,7 @@ $(".list-group").on("click", "p", function() {
     .val(text);
     $(this).replaceWith(textInput); //replace <p> with <textarea>
     textInput.trigger("focus"); // change focus to <textarea>
-  console.log(text);
+  // console.log(text);
 });
 
 $(".list-group").on("blur", "textarea", function() {
@@ -93,9 +95,7 @@ $(".list-group").on("blur", "textarea", function() {
 // due date was clicked
 $(".list-group").on("click", "span", function() {
   // get current text
-  var date = $(this)
-    .text()
-    .trim();
+  var date = $(this).text().trim();
 
   // create new input element
   var dateInput = $("<input>")
@@ -106,13 +106,23 @@ $(".list-group").on("click", "span", function() {
   // swap out elements
   $(this).replaceWith(dateInput);
 
+  // enable jquery ui datepicker
+  dateInput.datepicker( {
+    minDate: 1,
+    onClose: function() {
+      // when calendar is closed, force a "change" event on the 'dateInput'
+      // otherwise date will stay in edit mode
+      $(this).trigger("change");
+    }
+  });
+
   // automatically focus on new element
   dateInput.trigger("focus");
 
 });
 
-// value of due date was changed
-$(".list-group").on("blur", "input[type='text']", function() {
+// value of due date was changed (use "change" instead of "blur" for datepicker date change on edit)
+$(".list-group").on("change", "input[type='text']", function() {
   // get current text
   var date = $(this)
     .val()
@@ -141,6 +151,9 @@ $(".list-group").on("blur", "input[type='text']", function() {
   // replace input with span element
   $(this).replaceWith(taskSpan);
 
+  // Pass task's <li> element into auditTask() to check new due date
+  auditTask($(taskSpan).closest(".list-group-item"));
+
 });
 
 // turn columns into sortables
@@ -149,18 +162,18 @@ $(".card .list-group").sortable({
   scroll: false,
   tolerance: "pointer",
   helper: "clone",
-  activate: function(event) {
-    console.log("activate", this);
-  },
-  deactivate: function(event) {
-    console.log("deactivate", this);
-  },
-  over: function(event) {
-    console.log("over", event.target);
-  },
-  out: function(event) {
-    console.log("out", event.target);
-  },
+  // activate: function(event) {
+  //   console.log("activate", this);
+  // },
+  // deactivate: function(event) {
+  //   console.log("deactivate", this);
+  // },
+  // over: function(event) {
+  //   console.log("over", event.target);
+  // },
+  // out: function(event) {
+  //   console.log("out", event.target);
+  // },
   update: function(event) {
     // arry to store the task data in
     var tempArr = [];
@@ -258,6 +271,36 @@ $("#remove-tasks").on("click", function() {
   }
   saveTasks();
 });
+
+// datepicker
+$("#modalDueDate").datepicker( {
+  minDate: 1 // do not allow dates that have passed
+});
+
+var auditTask = function(taskEL) {
+  // get date from task element
+  var date = $(taskEL).find("span").text().trim();
+  // ensure it worked
+  // console.log(date);
+
+  // convert to moment object at 5:00 pm
+  var time = moment(date, "L").set("hour", 17); // "L" = user's local time; 17 = 5pm
+  // this should print out an object for the value of the date variable
+  // but at 5:00 pm of that date
+  // console.log(time);
+
+  // remove any old classes from element
+  $(taskEL).removeClass("list-group-item-warning list-group-item-danger");
+
+  // apply new class if task is near/over due date
+  if (moment().isAfter(time)) {
+    $(taskEL).addClass("list-group-item-danger");
+  }
+  else if (Math.abs(moment().diff(time, "days")) <= 2) {
+    // Math.abs absolute value
+    $(taskEL).addClass("list-group-item-warning");
+  }
+};
 
 // load tasks for the first time
 loadTasks();
